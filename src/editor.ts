@@ -42,8 +42,10 @@ export class NanoleafCardEditor extends HTMLElement {
   }
 
   private handleChange(event: Event): void {
-    const input = event.target as HTMLSelectElement;
+    const input = event.target as HTMLSelectElement | HTMLInputElement;
     if (input.id === "entity") this.update({ entity: input.value });
+    else if (input.id === "show-color") this.update({ show_color: (input as HTMLInputElement).checked });
+    else if (input.id === "show-temperature") this.update({ show_temperature: (input as HTMLInputElement).checked });
   }
 
   private handleInput(event: Event): void {
@@ -75,6 +77,9 @@ export class NanoleafCardEditor extends HTMLElement {
       ${others.length ? `<optgroup label="Other lights">${others.map(option).join("")}</optgroup>` : ""}
     </select><span class="hint">Nanoleaf devices appear first when Home Assistant reports their manufacturer. Any compatible light can be selected.</span></div>
     <div class="field"><label for="title">Title (optional)</label><input id="title" type="text" value="${escapeHtml(this.config.title ?? "")}" placeholder="Use device name"></div>
+    <label class="toggle"><input id="show-color" type="checkbox" ${this.config.show_color !== false ? "checked" : ""}> <span>Show color picker</span></label>
+    <label class="toggle"><input id="show-temperature" type="checkbox" ${this.config.show_temperature === true ? "checked" : ""}> <span>Show white temperature</span></label>
+    <div class="hint toggle-hint">White temperature is off by default. Each option only appears when supported by the selected light.</div>
     ${!this.loaded && !this.loading && this.hassData?.callWS ? `<div class="hint error">Could not load the device registry. All available lights are still listed.</div>` : ""}`;
     if (focusId) {
       const next = this.shadowRoot.querySelector<HTMLInputElement | HTMLSelectElement>(`#${focusId}`);

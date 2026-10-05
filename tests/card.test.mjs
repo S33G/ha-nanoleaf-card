@@ -57,7 +57,9 @@ test("card opens, keeps the dialog open across state updates, and sends supporte
   assert.equal(card.shadowRoot.querySelector("dialog").open, true);
   assert.ok(card.shadowRoot.querySelector("#brightness"));
   assert.ok(card.shadowRoot.querySelector("#color-wheel"));
-  assert.ok(card.shadowRoot.querySelector("#temperature"));
+  assert.equal(card.shadowRoot.querySelector("#temperature"), null, "white temperature is hidden by default");
+  assert.equal(card.shadowRoot.querySelector(".content").textContent.includes("Power"), false);
+  assert.equal(card.shadowRoot.querySelector(".power-row .power ha-icon").getAttribute("icon"), "mdi:power");
   assert.equal(card.shadowRoot.querySelectorAll("[data-action='effect']").length, 2);
   assert.match(card.shadowRoot.querySelector("dialog").textContent, /Last gesture: swipe up/);
 
@@ -87,8 +89,11 @@ test("card opens, keeps the dialog open across state updates, and sends supporte
   const wheelHue = Number(wheel.getAttribute("aria-valuenow"));
   const wheelSaturation = Number(wheel.getAttribute("aria-valuetext").match(/saturation (\d+)/)[1]);
   assert.deepEqual(hass.calls.at(-1), ["light", "turn_on", { entity_id: "light.shapes", hs_color: [wheelHue, wheelSaturation] }]);
-  assert.deepEqual(card.getGridOptions(), { columns: 6, min_columns: 3, max_columns: 12, min_rows: 1, rows: 2 });
+  assert.deepEqual(card.getGridOptions(), { columns: 6, min_columns: 3, max_columns: 12, min_rows: 1, max_rows: 3, rows: 1 });
   assert.equal(card.constructor.getConfigForm().schema[0].selector.entity.filter.domain, "light");
+  card.setConfig({ entity: "light.shapes", show_temperature: true, show_color: false });
+  assert.equal(card.shadowRoot.querySelector("#temperature") !== null, true, "temperature can be enabled in config");
+  assert.equal(card.shadowRoot.querySelector("#color-wheel"), null, "color picker can be disabled in config");
   card.remove();
 });
 
@@ -149,5 +154,15 @@ test("Home Assistant can open and use the visual editor", async () => {
   title.value = "Studio";
   title.dispatchEvent(new Event("input", { bubbles: true }));
   assert.deepEqual(changed, { entity: "light.shapes", title: "Studio" });
+  const showTemperature = editor.shadowRoot.querySelector("#show-temperature");
+  assert.equal(showTemperature.checked, false, "editor defaults white temperature to off");
+  showTemperature.checked = true;
+  showTemperature.dispatchEvent(new Event("change", { bubbles: true }));
+  assert.deepEqual(changed, { entity: "light.shapes", title: "Studio", show_temperature: true });
+  const showColor = editor.shadowRoot.querySelector("#show-color");
+  assert.equal(showColor.checked, true, "color picker defaults to on");
+  showColor.checked = false;
+  showColor.dispatchEvent(new Event("change", { bubbles: true }));
+  assert.deepEqual(changed, { entity: "light.shapes", title: "Studio", show_temperature: true, show_color: false });
   editor.remove();
 });

@@ -39,6 +39,8 @@ export interface CardConfig {
   type?: string;
   entity: string;
   title?: string;
+  show_color?: boolean;
+  show_temperature?: boolean;
 }
 
 export interface CompanionEntities {

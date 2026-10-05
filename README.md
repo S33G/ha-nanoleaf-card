@@ -4,7 +4,8 @@ A Home Assistant dashboard card for Nanoleaf lights. It shows a compact light ti
 
 ## Features
 
-- Power, brightness, solid color, white temperature, and searchable saved effects, according to the light entity's capabilities.
+- Power, brightness, optional solid color and white temperature controls, and searchable saved effects, according to the light entity's capabilities.
+- Sections dashboard sizing defaults to one grid row and can be resized from one to three rows; the tile fills its allocated height.
 - Automatic **Identify** button and latest touch gesture display when the Home Assistant device has those Nanoleaf entities.
 - The visual editor lists Nanoleaf lights first, including Matter and HomeKit devices when their manufacturer is reported as Nanoleaf. Any compatible `light` entity can be selected.
 - Unavailable state and service errors shown in the card.
@@ -35,9 +36,9 @@ entity: light.nanoleaf_shapes
 title: Studio Shapes
 ```
 
-`entity` is required and must be a `light` entity ID. `title` is optional; the entity's friendly name is used by default. Add another card for each additional device.
+`entity` is required and must be a `light` entity ID. `title` is optional; the entity's friendly name is used by default. `show_color` defaults to `true`; `show_temperature` defaults to `false`. The visual editor offers both options and only shows controls supported by the selected light. Add another card for each additional device.
 
-Tap the light tile to open its controls. The power button on the tile turns the light on or off. Selecting a color, temperature, brightness, or effect uses Home Assistant's `light.turn_on` action. The card updates from Home Assistant's live entity state. An Identify control appears when a related button entity exists. The latest supported touch gesture appears when a related event entity exists.
+Tap the light tile to open its controls. The power icon turns the light on or off. Selecting a color, temperature, brightness, or effect uses Home Assistant's `light.turn_on` action. The card updates from Home Assistant's live entity state. An Identify control appears when a related button entity exists. The latest supported touch gesture appears when a related event entity exists.
 
 ## Build and test
 

@@ -55,9 +55,9 @@ export class NanoleafCard extends HTMLElement {
   }
 
   get hass(): HomeAssistant | undefined { return this.hassData; }
-  getCardSize(): number { return 2; }
-  getGridOptions(): { columns: number; min_columns: number; max_columns: number; min_rows: number; rows: number } {
-    return { columns: 6, min_columns: 3, max_columns: 12, min_rows: 1, rows: 2 };
+  getCardSize(): number { return this.error ? 3 : 2; }
+  getGridOptions(): { columns: number; min_columns: number; max_columns: number; min_rows: number; max_rows: number; rows: number } {
+    return { columns: 6, min_columns: 3, max_columns: 12, min_rows: 1, max_rows: 3, rows: 1 };
   }
   getConfigElement(): HTMLElement { return document.createElement("ha-nanoleaf-card-editor"); }
   static getConfigForm() {
@@ -65,9 +65,11 @@ export class NanoleafCard extends HTMLElement {
       schema: [
         { name: "entity", required: true, selector: { entity: { filter: { domain: "light" } } } },
         { name: "title", selector: { text: {} } },
+        { name: "show_color", selector: { boolean: {} } },
+        { name: "show_temperature", selector: { boolean: {} } },
       ],
-      computeLabel: (schema: { name: string }) => schema.name === "entity" ? "Light" : "Title (optional)",
-      computeHelper: (schema: { name: string }) => schema.name === "entity" ? "Choose a Nanoleaf light, or any compatible light entity." : "Leave empty to use the entity name.",
+      computeLabel: (schema: { name: string }) => ({ entity: "Light", title: "Title (optional)", show_color: "Show color picker", show_temperature: "Show white temperature" }[schema.name] ?? schema.name),
+      computeHelper: (schema: { name: string }) => schema.name === "entity" ? "Choose a Nanoleaf light, or any compatible light entity." : schema.name === "title" ? "Leave empty to use the entity name." : schema.name === "show_temperature" ? "Off by default. Requires white temperature support." : "Requires color support.",
       assertConfig: (config: CardConfig) => {
         if (typeof config.entity !== "string" || !/^light\.[a-z0-9_]+$/.test(config.entity)) throw new Error("Choose one light entity.");
       },
@@ -275,7 +277,9 @@ export class NanoleafCard extends HTMLElement {
     const icon = state?.attributes.icon || "mdi:lightbulb-group";
     const brightness = brightnessPercent(state);
     const effect = state?.attributes.effect;
-    const status = !state ? "Entity not found" : !available ? "Unavailable" : on ? (effect || (caps.brightness ? `${brightness}% brightness` : "On")) : "Off";
+    const status = !state ? "Entity not found" : !available ? "Unavailable" : on ? (effect || "On") : "Off";
+    const showColor = this.config.show_color !== false;
+    const showTemperature = this.config.show_temperature === true;
     const selectedColor = this.colorPreview ?? (state?.attributes.hs_color as [number, number] | undefined) ?? [0, 0];
     const accent = hsToHex(selectedColor);
     const colorRadians = selectedColor[0] * Math.PI / 180;
@@ -297,10 +301,10 @@ export class NanoleafCard extends HTMLElement {
     </ha-card>
     <dialog aria-label="Controls for ${escapeHtml(title)}"><div class="detail-header"><span class="detail-title">${escapeHtml(title)}</span><button class="close" type="button" data-action="close" aria-label="Close controls"><ha-icon icon="mdi:close"></ha-icon></button></div>
       <div class="content">
-        <div class="row"><span><span class="label">Power</span><br><span class="muted">${escapeHtml(status)}</span></span><button class="secondary" type="button" data-action="power" aria-pressed="${on}" ${!available ? "disabled" : ""}>${on ? "Turn off" : "Turn on"}</button></div>
+        <div class="row power-row"><span class="muted">${on ? "On" : "Off"}</span><button class="power" type="button" data-action="power" aria-label="Turn ${escapeHtml(title)} ${on ? "off" : "on"}" aria-pressed="${on}" ${!available ? "disabled" : ""}><ha-icon icon="mdi:power"></ha-icon></button></div>
         ${caps.brightness ? `<div class="control"><div class="row"><label class="label" for="brightness">Brightness</label><output id="brightness-value" for="brightness">${brightness}%</output></div><input class="range" id="brightness" type="range" min="1" max="100" value="${brightness}" ${!available ? "disabled" : ""}></div>` : ""}
-        ${caps.color ? `<div class="control"><span class="label">Color</span><div class="color-row"><div id="color-wheel" class="wheel" role="slider" tabindex="0" aria-label="Choose color" aria-valuemin="0" aria-valuemax="359" aria-valuenow="${selectedColor[0]}" aria-valuetext="Hue ${selectedColor[0]} degrees, saturation ${selectedColor[1]} percent" aria-disabled="${!available}" style="opacity:${available ? 1 : 0.5};cursor:${available ? "crosshair" : "not-allowed"}"><span class="color-marker" style="left:${markerX}%;top:${markerY}%;background-color:${accent}"></span></div><div id="color-value" class="color-value"><span class="swatch" style="background-color:${accent}"></span><span class="hex">${accent.toUpperCase()}</span><span>Drag to choose · arrow keys to fine-tune</span></div></div></div>` : ""}
-        ${caps.temperature ? `<div class="control"><div class="row"><label class="label" for="temperature">White temperature</label><output id="temperature-value" for="temperature">${Math.round(kelvin)} K</output></div><input class="range" id="temperature" type="range" min="${caps.minKelvin}" max="${caps.maxKelvin}" step="50" value="${kelvin}" ${!available ? "disabled" : ""}></div>` : ""}
+        ${caps.color && showColor ? `<div class="control"><span class="label">Color</span><div class="color-row"><div id="color-wheel" class="wheel" role="slider" tabindex="0" aria-label="Choose color" aria-valuemin="0" aria-valuemax="359" aria-valuenow="${selectedColor[0]}" aria-valuetext="Hue ${selectedColor[0]} degrees, saturation ${selectedColor[1]} percent" aria-disabled="${!available}" style="opacity:${available ? 1 : 0.5};cursor:${available ? "crosshair" : "not-allowed"}"><span class="color-marker" style="left:${markerX}%;top:${markerY}%;background-color:${accent}"></span></div><div id="color-value" class="color-value"><span class="swatch" style="background-color:${accent}"></span><span class="hex">${accent.toUpperCase()}</span><span>Drag to choose · arrow keys to fine-tune</span></div></div></div>` : ""}
+        ${caps.temperature && showTemperature ? `<div class="control"><div class="row"><label class="label" for="temperature">White temperature</label><output id="temperature-value" for="temperature">${Math.round(kelvin)} K</output></div><input class="range" id="temperature" type="range" min="${caps.minKelvin}" max="${caps.maxKelvin}" step="50" value="${kelvin}" ${!available ? "disabled" : ""}></div>` : ""}
         ${caps.effects.length ? `<div class="control"><label class="label" for="effect-search">Saved effects</label><input class="search" id="effect-search" type="search" placeholder="Search effects" value="${escapeHtml(this.search)}"><div class="effects" aria-label="Saved effects">${caps.effects.map((name) => `<button class="effect" type="button" data-action="effect" data-effect="${escapeHtml(name)}" aria-pressed="${name === effect}" ${!available ? "disabled" : ""}>${escapeHtml(name)}</button>`).join("")}</div></div>` : ""}
         ${this.companions.identify || this.companions.gesture ? `<div class="row"><span class="muted">${gesture ? `Last gesture: ${escapeHtml(String(gesture).replace(/_/g, " "))}` : "Device"}</span>${this.companions.identify ? `<button class="secondary" type="button" data-action="identify" ${!available ? "disabled" : ""}>Identify</button>` : ""}</div>` : ""}
         ${this.error ? `<p class="detail-error" role="alert">${escapeHtml(this.error)}</p>` : ""}
