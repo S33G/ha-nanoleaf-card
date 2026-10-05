@@ -1,0 +1,19 @@
+{
+  "name": "ha-nanoleaf-card",
+  "version": "0.1.0",
+  "private": true,
+  "author": "s33g <dev@charlie.fyi>",
+  "license": "MIT",
+  "description": "A theme-aware Nanoleaf control card for Home Assistant",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --format=esm --target=es2020 --minify --outfile=ha-nanoleaf-card.js",
+    "typecheck": "tsc --noEmit",
+    "test": "esbuild src/model.ts --bundle --platform=node --format=esm --target=node20 --outfile=.test-build/model.mjs && npm run build && node tests/all.test.mjs",
+    "check": "npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "happy-dom": "^20.14.5",
+    "typescript": "^5.7.0"
+  }
+}
