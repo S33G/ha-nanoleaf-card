@@ -1,0 +1,7 @@
+:host { display:block; color:var(--primary-text-color); }
+  .field { display:grid; gap:6px; margin:12px 0; }
+  label { font-weight:600; }
+  select,input { box-sizing:border-box; width:100%; min-height:40px; padding:8px 10px; border:1px solid var(--divider-color,#ddd); border-radius:8px; background:var(--ha-card-background,var(--card-background-color,#fff)); color:var(--primary-text-color); font:inherit; }
+  select:focus-visible,input:focus-visible { outline:2px solid var(--primary-color); outline-offset:2px; }
+  .hint { color:var(--secondary-text-color); font-size:var(--ha-font-size-s,13px); }
+  .error { color:var(--error-color,#db4437); }

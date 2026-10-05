@@ -35,11 +35,11 @@ export function brightnessPercent(state: EntityState | undefined): number {
     : 100;
 }
 
-export function serviceData(entity: string, command: "on" | "off" | "brightness" | "color" | "temperature" | "effect", value?: number | string): { service: "turn_on" | "turn_off"; data: Record<string, unknown> } {
+export function serviceData(entity: string, command: "on" | "off" | "brightness" | "color" | "temperature" | "effect", value?: number | string | [number, number]): { service: "turn_on" | "turn_off"; data: Record<string, unknown> } {
   const data: Record<string, unknown> = { entity_id: entity };
   if (command === "off") return { service: "turn_off", data };
   if (command === "brightness") data.brightness_pct = Math.round(Math.max(1, Math.min(100, Number(value))));
-  if (command === "color") data.hs_color = hexToHs(String(value));
+  if (command === "color") data.hs_color = Array.isArray(value) ? [Math.round(value[0]), Math.round(Math.max(0, Math.min(100, value[1])))] : hexToHs(String(value));
   if (command === "temperature") data.color_temp_kelvin = Math.round(Number(value));
   if (command === "effect") data.effect = String(value);
   return { service: "turn_on", data };

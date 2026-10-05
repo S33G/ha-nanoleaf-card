@@ -1,46 +1,7 @@
 import { brightnessPercent, capabilities, companionsFor, escapeHtml, hsToHex, serviceData } from "./model";
+import cardCss from "./card.css";
 import type { CardConfig, CompanionEntities, EntityRegistryEntry, EntityState, HomeAssistant } from "./types";
 
-const CSS = `
-  :host { display:block; }
-  ha-card { overflow:hidden; background:var(--ha-card-background,var(--card-background-color,#fff)); color:var(--primary-text-color); }
-  button,input { font:inherit; }
-  button { cursor:pointer; }
-  button:focus-visible,input:focus-visible { outline:2px solid var(--primary-color); outline-offset:2px; }
-  button:disabled,input:disabled { cursor:not-allowed; opacity:.5; }
-  .tile { min-height:86px; display:flex; align-items:center; gap:12px; padding:12px 16px; box-sizing:border-box; }
-  .open { flex:1; min-width:0; display:flex; align-items:center; gap:14px; border:0; padding:0; color:inherit; background:transparent; text-align:left; }
-  .light-icon { width:48px; height:48px; flex:none; display:grid; place-items:center; border-radius:50%; background:var(--secondary-background-color,#eee); color:var(--secondary-text-color); }
-  .on .light-icon { background:color-mix(in srgb,var(--nanoleaf-accent) 22%,var(--ha-card-background,var(--card-background-color,#fff))); color:var(--nanoleaf-accent); }
-  .light-icon ha-icon { --mdc-icon-size:26px; }
-  .text { min-width:0; display:flex; flex-direction:column; gap:3px; }
-  .name { font-size:var(--ha-font-size-m,16px); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .status { color:var(--secondary-text-color); font-size:var(--ha-font-size-s,13px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .power { width:42px; height:42px; flex:none; display:grid; place-items:center; border:0; border-radius:50%; background:var(--secondary-background-color,#eee); color:var(--primary-text-color); }
-  .on .power { color:var(--state-light-active-color,var(--primary-color)); }
-  .error { margin:0 16px 12px; color:var(--error-color,#db4437); font-size:var(--ha-font-size-s,13px); }
-  dialog { box-sizing:border-box; width:min(440px,calc(100vw - 24px)); max-height:min(85vh,760px); overflow:auto; padding:0; border:1px solid var(--divider-color,#ddd); border-radius:var(--ha-card-border-radius,12px); color:var(--primary-text-color); background:var(--ha-card-background,var(--card-background-color,#fff)); box-shadow:var(--ha-card-box-shadow,0 16px 48px #0005); }
-  dialog::backdrop { background:#0009; }
-  .detail-header { position:sticky; top:0; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 18px; background:var(--ha-card-background,var(--card-background-color,#fff)); border-bottom:1px solid var(--divider-color,#ddd); }
-  .detail-title { min-width:0; font-size:var(--ha-font-size-l,18px); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .close { width:36px; height:36px; flex:none; border:0; border-radius:50%; background:transparent; color:var(--primary-text-color); }
-  .content { padding:16px 18px 20px; display:grid; gap:20px; }
-  .row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-  .label { font-weight:600; font-size:var(--ha-font-size-s,13px); }
-  .muted { color:var(--secondary-text-color); font-size:var(--ha-font-size-s,13px); }
-  .control { display:grid; gap:8px; }
-  .range { width:100%; accent-color:var(--state-light-active-color,var(--primary-color)); }
-  .color-row { display:flex; align-items:center; gap:12px; }
-  .color-input { width:54px; height:42px; border:1px solid var(--divider-color,#ddd); border-radius:8px; padding:3px; background:var(--secondary-background-color,#eee); }
-  .search { width:100%; box-sizing:border-box; min-height:40px; padding:8px 10px; border:1px solid var(--divider-color,#ddd); border-radius:8px; background:var(--ha-card-background,var(--card-background-color,#fff)); color:var(--primary-text-color); }
-  .effects { max-height:205px; overflow:auto; display:flex; flex-wrap:wrap; gap:8px; }
-  .effect { min-height:36px; max-width:100%; padding:6px 11px; border:1px solid var(--divider-color,#ddd); border-radius:18px; background:var(--secondary-background-color,#eee); color:var(--primary-text-color); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .effect[aria-pressed="true"] { border-color:var(--primary-color); color:var(--primary-color); }
-  .effect[hidden] { display:none; }
-  .secondary { min-height:36px; padding:6px 12px; border:1px solid var(--divider-color,#ddd); border-radius:8px; background:var(--secondary-background-color,#eee); color:var(--primary-text-color); }
-  .detail-error { margin:0; color:var(--error-color,#db4437); font-size:var(--ha-font-size-s,13px); }
-  @media (max-width:360px) { .tile { padding:10px 12px; gap:8px; } .open { gap:9px; } .light-icon { width:40px; height:40px; } }
-`;
 
 export class NanoleafCard extends HTMLElement {
   private config?: CardConfig;
@@ -50,6 +11,7 @@ export class NanoleafCard extends HTMLElement {
   private open = false;
   private search = "";
   private error = "";
+  private colorPreview?: [number, number];
 
   constructor() {
     super();
@@ -57,6 +19,11 @@ export class NanoleafCard extends HTMLElement {
     root.addEventListener("click", (event) => this.handleClick(event));
     root.addEventListener("input", (event) => this.handleInput(event));
     root.addEventListener("change", (event) => this.handleChange(event));
+    root.addEventListener("pointerdown", (event) => this.handleColorPointer(event, true));
+    root.addEventListener("pointermove", (event) => this.handleColorPointer(event, false));
+    root.addEventListener("pointerup", (event) => this.finishColorPointer(event));
+    root.addEventListener("pointercancel", () => { this.colorPreview = undefined; this.render(); });
+    root.addEventListener("keydown", (event) => this.handleColorKey(event as KeyboardEvent));
     root.addEventListener("close", (event) => {
       if (event.target instanceof HTMLDialogElement) this.open = false;
     }, true);
@@ -87,8 +54,23 @@ export class NanoleafCard extends HTMLElement {
 
   get hass(): HomeAssistant | undefined { return this.hassData; }
   getCardSize(): number { return 2; }
-  getGridOptions(): { columns: number; min_rows: number; rows: number } { return { columns: 6, min_rows: 1, rows: 2 }; }
+  getGridOptions(): { columns: number; min_columns: number; max_columns: number; min_rows: number; rows: number } {
+    return { columns: 6, min_columns: 3, max_columns: 12, min_rows: 1, rows: 2 };
+  }
   getConfigElement(): HTMLElement { return document.createElement("ha-nanoleaf-card-editor"); }
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "entity", required: true, selector: { entity: { filter: { domain: "light" } } } },
+        { name: "title", selector: { text: {} } },
+      ],
+      computeLabel: (schema: { name: string }) => schema.name === "entity" ? "Light" : "Title (optional)",
+      computeHelper: (schema: { name: string }) => schema.name === "entity" ? "Choose a Nanoleaf light, or any compatible light entity." : "Leave empty to use the entity name.",
+      assertConfig: (config: CardConfig) => {
+        if (typeof config.entity !== "string" || !/^light\.[a-z0-9_]+$/.test(config.entity)) throw new Error("Choose one light entity.");
+      },
+    };
+  }
   static getStubConfig(hass?: HomeAssistant): CardConfig {
     const first = Object.keys(hass?.states ?? {}).find((id) => id.startsWith("light."));
     return { entity: first ?? "light.choose_a_light" };
@@ -111,7 +93,7 @@ export class NanoleafCard extends HTMLElement {
     }
   }
 
-  private async command(command: "on" | "off" | "brightness" | "color" | "temperature" | "effect", value?: string | number): Promise<void> {
+  private async command(command: "on" | "off" | "brightness" | "color" | "temperature" | "effect", value?: string | number | [number, number]): Promise<void> {
     const state = this.state();
     if (!this.config || !this.hassData || !state || ["unavailable", "unknown"].includes(state.state)) return;
     try {
@@ -167,7 +149,76 @@ export class NanoleafCard extends HTMLElement {
     const input = event.target as HTMLInputElement;
     if (input.id === "brightness") void this.command("brightness", Number(input.value));
     else if (input.id === "temperature") void this.command("temperature", Number(input.value));
-    else if (input.id === "color") void this.command("color", input.value);
+  }
+
+  private colorAt(event: PointerEvent): [number, number] | undefined {
+    const wheel = (event.target as HTMLElement).closest<HTMLElement>("#color-wheel");
+    if (!wheel) return undefined;
+    const rect = wheel.getBoundingClientRect();
+    const radius = Math.min(rect.width, rect.height) / 2;
+    if (!radius) return undefined;
+    const dx = event.clientX - (rect.left + rect.width / 2);
+    const dy = event.clientY - (rect.top + rect.height / 2);
+    const distance = Math.min(1, Math.hypot(dx, dy) / radius);
+    const hue = (Math.round(Math.atan2(dx, -dy) * 180 / Math.PI) + 360) % 360;
+    return [hue, Math.round(distance * 100)];
+  }
+
+  private setColorPreview(value: [number, number]): void {
+    this.colorPreview = value;
+    const marker = this.shadowRoot?.querySelector<HTMLElement>(".color-marker");
+    const wheel = this.shadowRoot?.querySelector<HTMLElement>("#color-wheel");
+    const output = this.shadowRoot?.querySelector<HTMLElement>("#color-value");
+    if (!marker || !wheel || !output) return;
+    const radians = value[0] * Math.PI / 180;
+    const saturation = Math.max(0, Math.min(100, value[1])) / 100;
+    marker.style.left = `${50 + Math.sin(radians) * saturation * 50}%`;
+    marker.style.top = `${50 - Math.cos(radians) * saturation * 50}%`;
+    const color = hsToHex(value);
+    marker.style.backgroundColor = color;
+    wheel.setAttribute("aria-valuenow", String(value[0]));
+    wheel.setAttribute("aria-valuetext", `Hue ${value[0]} degrees, saturation ${value[1]} percent`);
+    const swatch = output.querySelector<HTMLElement>(".swatch");
+    if (swatch) swatch.style.backgroundColor = color;
+    const hex = output.querySelector<HTMLElement>(".hex");
+    if (hex) hex.textContent = color.toUpperCase();
+  }
+
+  private handleColorPointer(event: Event, start: boolean): void {
+    const pointer = event as PointerEvent;
+    const target = pointer.target as HTMLElement;
+    if (start) {
+      const wheel = target.closest<HTMLElement>("#color-wheel");
+      if (!wheel || !this.state() || ["unavailable", "unknown"].includes(this.state()!.state)) return;
+      pointer.preventDefault();
+      wheel.focus();
+      wheel.setPointerCapture?.(pointer.pointerId);
+    }
+    const value = this.colorAt(pointer);
+    if (value) this.setColorPreview(value);
+  }
+
+  private finishColorPointer(event: Event): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest("#color-wheel") || !this.colorPreview) return;
+    const value = this.colorAt(event as PointerEvent) ?? this.colorPreview;
+    this.colorPreview = value;
+    void this.command("color", value);
+  }
+
+  private handleColorKey(event: KeyboardEvent): void {
+    const wheel = (event.target as HTMLElement).closest<HTMLElement>("#color-wheel");
+    if (!wheel || wheel.getAttribute("aria-disabled") === "true") return;
+    const value = this.colorPreview ?? (this.state()?.attributes.hs_color as [number, number] | undefined) ?? [0, 0];
+    const next: [number, number] = [value[0], value[1]];
+    if (event.key === "ArrowLeft") next[0] = (next[0] + 359) % 360;
+    else if (event.key === "ArrowRight") next[0] = (next[0] + 1) % 360;
+    else if (event.key === "ArrowUp") next[1] = Math.min(100, next[1] + 1);
+    else if (event.key === "ArrowDown") next[1] = Math.max(0, next[1] - 1);
+    else return;
+    event.preventDefault();
+    this.setColorPreview(next);
+    void this.command("color", next);
   }
 
   private filterEffects(): void {
@@ -192,11 +243,16 @@ export class NanoleafCard extends HTMLElement {
     const brightness = brightnessPercent(state);
     const effect = state?.attributes.effect;
     const status = !state ? "Entity not found" : !available ? "Unavailable" : on ? (effect || (caps.brightness ? `${brightness}% brightness` : "On")) : "Off";
-    const accent = hsToHex(state?.attributes.hs_color);
+    const selectedColor = this.colorPreview ?? (state?.attributes.hs_color as [number, number] | undefined) ?? [0, 0];
+    const accent = hsToHex(selectedColor);
+    const colorRadians = selectedColor[0] * Math.PI / 180;
+    const colorSaturation = Math.max(0, Math.min(100, selectedColor[1])) / 100;
+    const markerX = 50 + Math.sin(colorRadians) * colorSaturation * 50;
+    const markerY = 50 - Math.cos(colorRadians) * colorSaturation * 50;
     const gesture = this.companions.gesture ? this.hassData?.states[this.companions.gesture]?.attributes.event_type : undefined;
     const temperature = Number(state?.attributes.color_temp_kelvin);
     const kelvin = Number.isFinite(temperature) && temperature >= caps.minKelvin && temperature <= caps.maxKelvin ? temperature : Math.round((caps.minKelvin + caps.maxKelvin) / 2);
-    const markup = `<style>${CSS}</style><ha-card style="--nanoleaf-accent:${accent}" class="${on ? "on" : ""}">
+    const markup = `<style>${cardCss}</style><ha-card style="--nanoleaf-accent:${accent}" class="${on ? "on" : ""}">
       <div class="tile">
         <button class="open" type="button" data-action="open" aria-label="Open controls for ${escapeHtml(title)}">
           <span class="light-icon"><ha-icon icon="${escapeHtml(icon)}"></ha-icon></span>
@@ -210,7 +266,7 @@ export class NanoleafCard extends HTMLElement {
       <div class="content">
         <div class="row"><span><span class="label">Power</span><br><span class="muted">${escapeHtml(status)}</span></span><button class="secondary" type="button" data-action="power" aria-pressed="${on}" ${!available ? "disabled" : ""}>${on ? "Turn off" : "Turn on"}</button></div>
         ${caps.brightness ? `<div class="control"><div class="row"><label class="label" for="brightness">Brightness</label><output id="brightness-value" for="brightness">${brightness}%</output></div><input class="range" id="brightness" type="range" min="1" max="100" value="${brightness}" ${!available ? "disabled" : ""}></div>` : ""}
-        ${caps.color ? `<div class="control"><label class="label" for="color">Color</label><div class="color-row"><input class="color-input" id="color" type="color" value="${accent}" ${!available ? "disabled" : ""}><span class="muted">Choose a solid color</span></div></div>` : ""}
+        ${caps.color ? `<div class="control"><span class="label">Color</span><div class="color-row"><div id="color-wheel" class="wheel" role="slider" tabindex="0" aria-label="Choose color" aria-valuemin="0" aria-valuemax="359" aria-valuenow="${selectedColor[0]}" aria-valuetext="Hue ${selectedColor[0]} degrees, saturation ${selectedColor[1]} percent" aria-disabled="${!available}" style="opacity:${available ? 1 : 0.5};cursor:${available ? "crosshair" : "not-allowed"}"><span class="color-marker" style="left:${markerX}%;top:${markerY}%;background-color:${accent}"></span></div><div id="color-value" class="color-value"><span class="swatch" style="background-color:${accent}"></span><span class="hex">${accent.toUpperCase()}</span><span>Drag to choose · arrow keys to fine-tune</span></div></div></div>` : ""}
         ${caps.temperature ? `<div class="control"><div class="row"><label class="label" for="temperature">White temperature</label><output id="temperature-value" for="temperature">${Math.round(kelvin)} K</output></div><input class="range" id="temperature" type="range" min="${caps.minKelvin}" max="${caps.maxKelvin}" step="50" value="${kelvin}" ${!available ? "disabled" : ""}></div>` : ""}
         ${caps.effects.length ? `<div class="control"><label class="label" for="effect-search">Saved effects</label><input class="search" id="effect-search" type="search" placeholder="Search effects" value="${escapeHtml(this.search)}"><div class="effects" aria-label="Saved effects">${caps.effects.map((name) => `<button class="effect" type="button" data-action="effect" data-effect="${escapeHtml(name)}" aria-pressed="${name === effect}" ${!available ? "disabled" : ""}>${escapeHtml(name)}</button>`).join("")}</div></div>` : ""}
         ${this.companions.identify || this.companions.gesture ? `<div class="row"><span class="muted">${gesture ? `Last gesture: ${escapeHtml(String(gesture).replace(/_/g, " "))}` : "Device"}</span>${this.companions.identify ? `<button class="secondary" type="button" data-action="identify" ${!available ? "disabled" : ""}>Identify</button>` : ""}</div>` : ""}

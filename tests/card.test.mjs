@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Window } from "happy-dom";
 
 const browser = new Window({ url: "http://homeassistant.local:8123/" });
-for (const key of ["window", "document", "customElements", "HTMLElement", "HTMLDialogElement", "HTMLInputElement", "CustomEvent", "Event"]) {
+for (const key of ["window", "document", "customElements", "HTMLElement", "HTMLDialogElement", "HTMLInputElement", "CustomEvent", "Event", "KeyboardEvent"]) {
   globalThis[key] = key === "window" ? browser : browser[key];
 }
 await import("../ha-nanoleaf-card.js");
@@ -56,7 +56,7 @@ test("card opens, keeps the dialog open across state updates, and sends supporte
   card.shadowRoot.querySelector("[data-action='open']").click();
   assert.equal(card.shadowRoot.querySelector("dialog").open, true);
   assert.ok(card.shadowRoot.querySelector("#brightness"));
-  assert.ok(card.shadowRoot.querySelector("#color"));
+  assert.ok(card.shadowRoot.querySelector("#color-wheel"));
   assert.ok(card.shadowRoot.querySelector("#temperature"));
   assert.equal(card.shadowRoot.querySelectorAll("[data-action='effect']").length, 2);
   assert.match(card.shadowRoot.querySelector("dialog").textContent, /Last gesture: swipe up/);
@@ -71,6 +71,11 @@ test("card opens, keeps the dialog open across state updates, and sends supporte
   card.shadowRoot.querySelector("[data-action='identify']").click();
   await tick();
   assert.deepEqual(hass.calls.at(-1), ["button", "press", { entity_id: "button.shapes_identify" }]);
+  card.shadowRoot.querySelector("#color-wheel").dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+  await tick();
+  assert.deepEqual(hass.calls.at(-1), ["light", "turn_on", { entity_id: "light.shapes", hs_color: [301, 100] }]);
+  assert.deepEqual(card.getGridOptions(), { columns: 6, min_columns: 3, max_columns: 12, min_rows: 1, rows: 2 });
+  assert.equal(card.constructor.getConfigForm().schema[0].selector.entity.filter.domain, "light");
   card.remove();
 });
 
@@ -83,7 +88,7 @@ test("unavailable and simple lights disable or hide controls", () => {
   assert.equal(card.shadowRoot.querySelector(".power").disabled, true);
   card.shadowRoot.querySelector("[data-action='open']").click();
   assert.equal(card.shadowRoot.querySelector("#brightness"), null);
-  assert.equal(card.shadowRoot.querySelector("#color"), null);
+  assert.equal(card.shadowRoot.querySelector("#color-wheel"), null);
   assert.equal(card.shadowRoot.querySelector("#temperature"), null);
   card.remove();
 });
@@ -114,16 +119,17 @@ test("missing entities and failed actions show clear errors", async () => {
   card.remove();
 });
 
-test("editor prioritizes Nanoleaf devices and emits configuration changes", async () => {
+test("Home Assistant can open and use the visual editor", async () => {
   const hass = mockHass();
-  hass.states["light.other"] = { entity_id: "light.other", state: "on", attributes: { friendly_name: "Other light" } };
-  const editor = document.createElement("ha-nanoleaf-card-editor");
+  const card = document.createElement("ha-nanoleaf-card");
+  card.setConfig({ entity: "light.shapes" });
+  const editor = card.getConfigElement();
+  assert.equal(editor.localName, "ha-nanoleaf-card-editor");
   document.body.append(editor);
   editor.setConfig({ entity: "light.shapes" });
   editor.hass = hass;
   await tick();
   assert.match(editor.shadowRoot.querySelector("select").innerHTML, /Nanoleaf lights/);
-  assert.match(editor.shadowRoot.querySelector("select").innerHTML, /Other lights/);
   let changed;
   editor.addEventListener("config-changed", (event) => { changed = event.detail.config; });
   const title = editor.shadowRoot.querySelector("#title");

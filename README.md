@@ -6,7 +6,7 @@ A Home Assistant dashboard card for Nanoleaf lights. It shows a compact light ti
 
 - Power, brightness, solid color, white temperature, and searchable saved effects, according to the light entity's capabilities.
 - Automatic **Identify** button and latest touch gesture display when the Home Assistant device has those Nanoleaf entities.
-- Nanoleaf lights shown first in the visual editor, including devices connected through Matter or HomeKit when their manufacturer is reported as Nanoleaf. Any compatible `light` entity can be configured manually.
+- The visual editor lists Nanoleaf lights first, including Matter and HomeKit devices when their manufacturer is reported as Nanoleaf. Any compatible `light` entity can be selected.
 - Unavailable state and service errors shown in the card.
 
 The official Home Assistant Nanoleaf integration supports Light Panels, Canvas, Shapes, Elements, and Lines. It does not support the Nanoleaf Remote or Essentials lights; Essentials may instead be available through Matter or HomeKit. This card follows the capabilities reported by those Home Assistant light entities. It does not connect to the Nanoleaf device IP directly, require an API token, show physical panel layouts, or paint individual panels.
@@ -27,7 +27,7 @@ Copy `ha-nanoleaf-card.js` to your Home Assistant `/config/www/` directory. Add 
 
 ## Use
 
-Add **Nanoleaf Card** in the dashboard card picker and choose a light in the visual editor. Or use YAML:
+Add **Nanoleaf Card** in the dashboard card picker and choose a light in the visual editor. The card can resize from half width to full width in Sections dashboards. Or use YAML:
 
 ```yaml
 type: custom:ha-nanoleaf-card

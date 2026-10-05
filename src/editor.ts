@@ -1,15 +1,7 @@
 import { escapeHtml, nanoleafLights } from "./model";
+import editorCss from "./editor.css";
 import type { CardConfig, DeviceRegistryEntry, EntityRegistryEntry, HomeAssistant } from "./types";
 
-const CSS = `
-  :host { display:block; color:var(--primary-text-color); }
-  .field { display:grid; gap:6px; margin:12px 0; }
-  label { font-weight:600; }
-  select,input { box-sizing:border-box; width:100%; min-height:40px; padding:8px 10px; border:1px solid var(--divider-color,#ddd); border-radius:8px; background:var(--ha-card-background,var(--card-background-color,#fff)); color:var(--primary-text-color); font:inherit; }
-  select:focus-visible,input:focus-visible { outline:2px solid var(--primary-color); outline-offset:2px; }
-  .hint { color:var(--secondary-text-color); font-size:var(--ha-font-size-s,13px); }
-  .error { color:var(--error-color,#db4437); }
-`;
 
 export class NanoleafCardEditor extends HTMLElement {
   private config: Partial<CardConfig> = {};
@@ -76,7 +68,7 @@ export class NanoleafCardEditor extends HTMLElement {
     const selected = this.config.entity ?? "";
     const name = (id: string) => this.hassData?.states[id]?.attributes.friendly_name || id;
     const option = (id: string) => `<option value="${escapeHtml(id)}" ${selected === id ? "selected" : ""}>${escapeHtml(name(id))}</option>`;
-    this.shadowRoot.innerHTML = `<style>${CSS}</style><div class="field"><label for="entity">Light</label><select id="entity" required>
+    this.shadowRoot.innerHTML = `<style>${editorCss}</style><div class="field"><label for="entity">Light</label><select id="entity" required>
       <option value="" ${!selected ? "selected" : ""}>Choose a light</option>
       ${selected && !allLights.includes(selected) ? `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)} (not found)</option>` : ""}
       ${nanoleaf.length ? `<optgroup label="Nanoleaf lights">${nanoleaf.map(option).join("")}</optgroup>` : ""}
