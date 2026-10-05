@@ -12,6 +12,7 @@ export class NanoleafCard extends HTMLElement {
   private search = "";
   private error = "";
   private colorPreview?: [number, number];
+  private colorDebounceTimer?: ReturnType<typeof setTimeout>;
 
   constructor() {
     super();
@@ -35,6 +36,7 @@ export class NanoleafCard extends HTMLElement {
     }
     if (config.title !== undefined && typeof config.title !== "string") throw new Error("Title must be text.");
     const changed = this.config?.entity !== config.entity;
+    if (changed) this.cancelColorCommand();
     this.config = { ...config };
     this.error = "";
     if (changed) {
@@ -76,7 +78,10 @@ export class NanoleafCard extends HTMLElement {
     return { entity: first ?? "light.choose_a_light" };
   }
 
-  disconnectedCallback(): void { this.registryToken++; }
+  disconnectedCallback(): void {
+    this.registryToken++;
+    this.cancelColorCommand();
+  }
 
   private state(): EntityState | undefined { return this.config ? this.hassData?.states[this.config.entity] : undefined; }
 
@@ -94,6 +99,7 @@ export class NanoleafCard extends HTMLElement {
   }
 
   private async command(command: "on" | "off" | "brightness" | "color" | "temperature" | "effect", value?: string | number | [number, number]): Promise<void> {
+    this.cancelColorCommand();
     const state = this.state();
     if (!this.config || !this.hassData || !state || ["unavailable", "unknown"].includes(state.state)) return;
     try {
@@ -206,19 +212,46 @@ export class NanoleafCard extends HTMLElement {
     void this.command("color", value);
   }
 
+  private cancelColorCommand(): void {
+    if (this.colorDebounceTimer) clearTimeout(this.colorDebounceTimer);
+    this.colorDebounceTimer = undefined;
+  }
+
+  private scheduleColorCommand(value: [number, number]): void {
+    this.cancelColorCommand();
+    const next = [...value] as [number, number];
+    this.colorDebounceTimer = setTimeout(() => {
+      this.colorDebounceTimer = undefined;
+      void this.command("color", next);
+    }, 180);
+  }
+
   private handleColorKey(event: KeyboardEvent): void {
     const wheel = (event.target as HTMLElement).closest<HTMLElement>("#color-wheel");
     if (!wheel || wheel.getAttribute("aria-disabled") === "true") return;
     const value = this.colorPreview ?? (this.state()?.attributes.hs_color as [number, number] | undefined) ?? [0, 0];
-    const next: [number, number] = [value[0], value[1]];
-    if (event.key === "ArrowLeft") next[0] = (next[0] + 359) % 360;
-    else if (event.key === "ArrowRight") next[0] = (next[0] + 1) % 360;
-    else if (event.key === "ArrowUp") next[1] = Math.min(100, next[1] + 1);
-    else if (event.key === "ArrowDown") next[1] = Math.max(0, next[1] - 1);
+    const radians = value[0] * Math.PI / 180;
+    const saturation = Math.max(0, Math.min(100, value[1])) / 100;
+    let x = Math.sin(radians) * saturation;
+    let y = -Math.cos(radians) * saturation;
+    const step = event.shiftKey ? 0.1 : 0.03;
+    if (event.key === "ArrowLeft") x -= step;
+    else if (event.key === "ArrowRight") x += step;
+    else if (event.key === "ArrowUp") y -= step;
+    else if (event.key === "ArrowDown") y += step;
     else return;
     event.preventDefault();
+    const distance = Math.hypot(x, y);
+    if (distance > 1) {
+      x /= distance;
+      y /= distance;
+    }
+    const next: [number, number] = [
+      Math.hypot(x, y) < 0.0001 ? value[0] : (Math.round(Math.atan2(x, -y) * 180 / Math.PI) + 360) % 360,
+      Math.round(Math.min(1, Math.hypot(x, y)) * 100),
+    ];
     this.setColorPreview(next);
-    void this.command("color", next);
+    this.scheduleColorCommand(next);
   }
 
   private filterEffects(): void {
